@@ -10,23 +10,29 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @title Canonical token support swap with per-bridge token
  */
 contract SwapCanonicalToken is ERC20, Ownable {
-    mapping(address => uint256) public mintCap; // each bridge token -> mint cap
+    mapping(address => uint256) public swapCap; // each bridge token -> swap cap
 
-    // each bridge token.balanceOf(this) tracks how much that bridge has already minted
+    uint8 private immutable _decimals;
 
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        uint8 decimals_
+    ) ERC20(name_, symbol_) {
+        _decimals = decimals_;
+    }
 
-    // update existing bridge token mint cap or add a new bridge token with mint cap
+    // update existing bridge token swap cap or add a new bridge token with swap cap
     // set cap to 0 will disable swapBridgeForCanonical, but swapCanonicalToBridge will still work
-    function setBridgeTokenMintCap(address bridgeToken, uint256 mintCap_) external onlyOwner {
-        mintCap[bridgeToken] = mintCap_;
+    function setBridgeTokenSwapCap(address bridgeToken, uint256 swapCap_) external onlyOwner {
+        swapCap[bridgeToken] = swapCap_;
     }
 
     // msg.sender has bridge_token and want to get canonical token
     function swapBridgeForCanonical(address bridgeToken, uint256 amount) external {
         // move bridge token from msg.sender to canonical token address
         IERC20(bridgeToken).transferFrom(msg.sender, address(this), amount);
-        require(IERC20(bridgeToken).balanceOf(address(this)) < mintCap[bridgeToken], "exceed mint cap");
+        require(IERC20(bridgeToken).balanceOf(address(this)) < swapCap[bridgeToken], "exceed swap cap");
         _mint(msg.sender, amount);
     }
 
@@ -39,5 +45,9 @@ contract SwapCanonicalToken is ERC20, Ownable {
     // to make compatible with BEP20
     function getOwner() external view returns (address) {
         return owner();
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
     }
 }
